@@ -1,23 +1,27 @@
 import java.util.Scanner
 
 object Main {
-  def check(input: Array[Array[Int]]): Int = {
-    Array.tabulate(input(0).length)(
-      j => math.max(
-        Array.tabulate(input.length)(i => input(i)(j)).filter(k => 0 == k).length,
-        Array.tabulate(input.length)(i => input(i)(j)).filter(k => 1 == k).length
-      )
-    ).sum
-  }
 
-  def rev(num: Int, input: Array[Array[Int]]): Array[Array[Int]] = {
-    Array.tabulate(input.length)(i => if ((num >> i) % 2 == 1) (Array.tabulate(input(i).length)(j => 1 - input(i)(j))) else (input(i)))
+  def check2(num: Int, input: Array[Array[Int]]): Int = {
+    var ret = 0
+    for (j <- 0 until input(0).length) {
+      var N = 0
+      for (i <- 0 until input.length) {
+        if ((num >> i) % 2 == 1) {
+          N += 1 - input(i)(j)
+        } else {
+          N += input(i)(j)
+        }
+      }
+      ret += math.max(N, input.length - N)
+    }
+    ret
   }
 
   def make(input: Array[Array[Int]]): Int = {
     var max: Int = 0
-    for (i <- 0 until 1 << input.length) {
-      max = math.max(max, check(rev(i, input)))
+    for (i <- 0 to (1 << (input.length - 2))) {
+      max = math.max(max, check2(i, input))
     }
     max
   }
