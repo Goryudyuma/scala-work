@@ -1,0 +1,62 @@
+import java.util.Scanner
+
+import scala.annotation.tailrec
+
+class IUnionFind(val size: Int) {
+
+  private case class Node(var parent: Option[Int], var treeSize: Int)
+
+  private val nodes = Array.fill[Node](size)(new Node(None, 1))
+
+  def union(t1: Int, t2: Int): IUnionFind = {
+    if (t1 == t2) return this
+
+    val root1 = root(t1)
+    val root2 = root(t2)
+    if (root1 == root2) return this
+
+    val node1 = nodes(root1)
+    val node2 = nodes(root2)
+
+    if (node1.treeSize < node2.treeSize) {
+      node1.parent = Some(t2)
+      node2.treeSize += node1.treeSize
+    } else {
+      node2.parent = Some(t1)
+      node1.treeSize += node2.treeSize
+    }
+    this
+  }
+
+  def connected(t1: Int, t2: Int): Boolean = t1 == t2 || root(t1) == root(t2)
+
+  @tailrec
+  private def root(t: Int): Int = nodes(t).parent match {
+    case None => t
+    case Some(p) => root(p)
+  }
+}
+
+object Main {
+  def solve(sc: => Scanner): Long = {
+    val N, M = sc.nextInt
+    val A = Array.fill(M)((sc.nextInt - 1, sc.nextInt - 1))
+    var ans = 0
+    for (i <- 0 until M) {
+      val uf = new IUnionFind(N)
+      for (j <- 0 until M) {
+        if (i != j) {
+          uf.union(A(j)._1, A(j)._2)
+        }
+      }
+      if (!uf.connected(A(i)._1, A(i)._2)) (ans += 1)
+    }
+    ans
+  }
+
+  def main(args: Array[String]): Unit = {
+    val sc: Scanner = new Scanner(System.in)
+
+    println(solve(sc))
+  }
+}
