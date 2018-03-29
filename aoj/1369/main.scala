@@ -52,7 +52,7 @@ object Main {
       A(B(i)._2) = A(B(i)._2) ++ A(B(i)._2 - 1)
       A(B(i)._2 - 1) = A(B(i)._2) ++ A(B(i)._2 - 1)
     }
-    println(A.map(x=>x.size).mkString(" "))
+    println(A.map(x => x.size).mkString(" "))
   }
 
   def main(args: Array[String]): Unit = {
