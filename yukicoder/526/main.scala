@@ -1,16 +1,85 @@
-import java.util.Scanner
+//import java.util.Scanner
 
-import scala.collection.Searching._
-import scala.annotation.tailrec
-import scala.collection.mutable
+import java.io._
+import java.nio.file.Files._
+import java.nio.file.Path
+import java.util.StringTokenizer
+
 import scala.collection.immutable._
-import scala.io.StdIn.readLine
+import scala.io.Codec
+
+/**
+  * Scala implementation of a faster java.util.Scanner
+  * See: http://codeforces.com/blog/entry/7018
+  */
+
+class Scanner(reader: LineNumberReader) extends Iterable[String] with AutoCloseable {
+  def this(reader: BufferedReader) = this(new LineNumberReader(reader))
+
+  def this(reader: Reader) = this(new BufferedReader(reader))
+
+  def this(inputStream: InputStream)(implicit codec: Codec) = this(new InputStreamReader(inputStream, codec.charSet))
+
+  def this(path: Path)(implicit codec: Codec) = this(newBufferedReader(path, codec.charSet))
+
+  def this(file: File)(implicit codec: Codec) = this(file.toPath)(codec)
+
+  def this(str: String) = this(new StringReader(str))
+
+  override def iterator: Iterator[String] = for {
+    line <- Iterator.continually(reader.readLine()).takeWhile(_ != null)
+    tokenizer = new StringTokenizer(line)
+    tokens <- Iterator.continually(tokenizer).takeWhile(_.hasMoreTokens)
+  } yield tokens.nextToken()
+
+  private[this] var current = iterator
+
+  def hasNext: Boolean = current.hasNext
+
+  @inline def next(): String = current.next()
+
+  /**
+    * This is different from Java's scanner.nextLine
+    * The Java one is a misnomer since it actually travel to end of current line
+    * This one actually does fetch the next line
+    */
+  def nextLine(): String = {
+    val line = reader.readLine()
+    current = iterator
+    line
+  }
+
+  def lineNumber: Int = reader.getLineNumber
+
+  def nextString(): String = next()
+
+  def nextBoolean(): Boolean = next().toBoolean
+
+  def nextByte(radix: Int = 10): Byte = java.lang.Byte.parseByte(next(), radix)
+
+  def nextShort(radix: Int = 10): Short = java.lang.Short.parseShort(next(), radix)
+
+  def nextInt(radix: Int = 10): Int = java.lang.Integer.parseInt(next(), radix)
+
+  def nextLong(radix: Int = 10): Long = java.lang.Long.parseLong(next(), radix)
+
+  def nextBigInt(radix: Int = 10): BigInt = BigInt(next(), radix)
+
+  def nextFloat(): Float = next().toFloat
+
+  def nextDouble(): Double = next().toDouble
+
+  def nextBigDecimal(): BigDecimal = BigDecimal(next())
+
+  override def close(): Unit = reader.close()
+}
+
 
 class IUnionFind(val size: Int) {
 
   private case class Node(var parent: Option[Int], var treeSize: Int)
 
-  private val nodes = Array.fill[Node](size)(new Node(None, 1))
+  private val nodes = Array.fill[Node](size)(Node(None, treeSize = 1))
 
   def union(t1: Int, t2: Int): IUnionFind = {
     if (t1 == t2) return this
@@ -36,43 +105,72 @@ class IUnionFind(val size: Int) {
 
   def root(t: Int): Int = nodes(t).parent match {
     case None => t
-    case Some(p) => root(p)
+    case Some(p) =>
+      nodes(t).parent = Some(root(p))
+      nodes(t).parent.get
   }
 }
 
-object Main {
-  val m = (1 << 9) - 1
 
+object Main {
   def solve(sc: => Scanner): Unit = {
-    val N, M = sc.nextInt
-    println(Util.fib(0, 1, mod = M).drop(N - 1).head)
+    val N, M = sc.nextLong()
+    println(recursive(N - 1, M, 0, 1))
   }
 
-  def recursive(now: Int, A: Array[List[Int]]): Int = {
-    if (A(now).size == 0) (now) else {
-      val next = A(now).head
-      A(now) = A(now).filter(_ != next)
-      A(next) = A(next).filter(_ != now)
-      recursive(next, A)
+  @scala.annotation.tailrec
+  def recursive(N: Long, M: Long, prev: Long, now: Long): Long = {
+    if (N == 0) prev else recursive(N - 1, M, now, (prev + now) % M)
+  }
+
+  def time(s: String): Int =
+    s.substring(0, 2).toInt * 60 + s.substring(3, 5).toInt
+
+  def getPermutation(begin: Long = 0): Stream[Long] =
+    Stream.cons(begin, getPermutation(begin + 1))
+
+  def calc(A: Array[Long]): Array[String] = {
+    if (A.length == 0) Array.fill(0)("")
+    else {
+      val last = A.zipWithIndex.map(x => (x._1 - x._2, x._1)).takeWhile(x => x._1 == A.head).last._2
+      if (last == A.head) "%d".format(A.head) +: calc(A.zipWithIndex.map(x => (x._1 - x._2, x._1)).dropWhile(x => x._1 == A.head).map(x => x._2))
+      else "%d-%d".format(A.head, last) +: calc(A.zipWithIndex.map(x => (x._1 - x._2, x._1)).dropWhile(x => x._1 == A.head).map(x => x._2))
     }
   }
 
-  def check(A: Array[List[Int]]): Boolean = {
-    A.map(_.size == 0).fold(true)((a, b) => a & b)
+  var memo: Map[(Long, Long), Long] = Map[(Long, Long), Long]()
+
+
+  @scala.annotation.tailrec
+  def recursive2(X: Set[Long], Y: Stream[Long]): Long = if (X.contains(Y.head)) X.size else recursive2(X + Y.head, Y.tail)
+
+  def check(i: Int, X: String): Long = {
+    if (X == "") 0 else check(i, X.tail) * i + X.head.toString.toLong
   }
 
   def shift(n: Long): Long = {
-    if (n == 0) (0) else if (n == 1) (1) else (shift(n - 1) << 1)
+    if (n == 0) 0
+    else if (n == 1) 1
+    else shift(n - 1) << 1
   }
 
   def unShift(n: Long): Long = {
-    if (n == 0) (0) else (unShift(n >> 1) + 1)
+    if (n == 0) 0
+    else unShift(n >> 1) + 1
   }
 
-  def calc(v: Long): Long = (v + 1) * v / 2
-
+  @scala.annotation.tailrec
   def gcd(i: Long, j: Long): Long = {
-    if (i < j) (gcd(j, i)) else (if (j == 0) (i) else (gcd(j, i % j)))
+    if (i < j) gcd(j, i)
+    else if (j == 0) i
+    else gcd(j, i % j)
+  }
+
+  def primeFactors(i: Long): List[Long] = primeFactors_(i, 1).sorted
+
+
+  def primeFactors_(i: Long, j: Long): List[Long] = {
+    if (j * j > i) List.empty else if (i % j == 0) primeFactors_(i, j + 1) ++ List[Long](j, i / j) else primeFactors_(i, j + 1)
   }
 
   def main(args: Array[String]): Unit = {
@@ -85,11 +183,55 @@ object Util {
   def getPermutation(begin: Long = 0): Stream[Long] =
     Stream.cons(begin, getPermutation(begin + 1))
 
-  def getPrimeList(): Stream[Long] =
+  def getPrimeList: Stream[Long] =
     getPrimeListRecursive(getPermutation(begin = 2))
 
   private def getPrimeListRecursive(A: Stream[Long]): Stream[Long] =
     Stream.cons(A.head, getPrimeListRecursive(A.tail.filter(_ % A.head != 0)))
 
-  def fib(a: Long, b: Long, mod: Long = Long.MaxValue): Stream[Long] = a #:: fib(b % mod, (a + b) % mod, mod)
+  def fib(a: Long = 0, b: Long = 1, mod: Long = Long.MaxValue): Stream[Long] = a #:: fib(b % mod, (a + b) % mod, mod)
+}
+
+object ArabicRoman {
+
+  type =?>[A, B] = PartialFunction[A, B]
+
+  val codeTable = List(
+    (1000, "M"), (900, "CM"), (500, "D"), (400, "CD"), (100, "C"),
+    (90, "XC"), (50, "L"), (40, "XL"), (10, "X"), (9, "IX"), (5, "V"), (4, "IV"), (1, "I"))
+
+  val arabicToRoman: Int =?> String = {
+    case src if src >= 1 && src <= 3999 =>
+
+      @scala.annotation.tailrec
+      def convert(left: Int, cont: String = "", code: List[(Int, String)] = codeTable): String = {
+        val (unitVal, unitChar) = code.head
+        left - unitVal match {
+          case n if n == 0 => cont + unitChar
+          case n if n > 0 => convert(n, cont + unitChar, code)
+          case _ => convert(left, cont, code.tail)
+        }
+      }
+
+      convert(src)
+  }
+
+  val romanToArabic: String =?> Int = {
+    case src if Option(src).exists { s => {
+      s.nonEmpty && """[^MDCLXVI]""".r.findFirstMatchIn(s.toUpperCase).isEmpty
+    }
+    } =>
+
+      @scala.annotation.tailrec
+      def convert(left: String, cont: Int = 0, code: List[(Int, String)] = codeTable): Int = {
+        val (unitVal, unitChar) = code.head
+        left.splitAt(unitChar.length) match {
+          case ("", _) => cont
+          case (`unitChar`, tail) => convert(tail, cont + unitVal, code)
+          case _ => convert(left, cont, code.tail)
+        }
+      }
+
+      convert(src.toUpperCase())
+  }
 }
